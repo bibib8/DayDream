@@ -1,0 +1,11 @@
+# Template for release signing configuration
+# Copy this file to 'android/key.properties' and fill in your actual values.
+# Do NOT commit 'key.properties' or your keystore file to version control.
+#
+# Generate a keystore with the following command:
+# keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+
+storePassword=your_store_password_here
+keyPassword=your_key_password_here
+keyAlias=upload
+storeFile=../upload-keystore.jks
