@@ -110,22 +110,54 @@ class SupabaseRepository {
     }
   }
 
-  /// Delete user account and all associated cloud data (diaries, entries, moods, profile)
+  /// Delete user account and all associated cloud data (storage photos, tables, auth user)
   static Future<void> deleteUserAccount() async {
     final client = _client;
     final user = currentUser;
-    if (client == null || user == null) return;
-
-    try {
-      await client.from('mood_logs').delete().eq('user_id', user.id);
-      await client.from('entries').delete().eq('user_id', user.id);
-      await client.from('diaries').delete().eq('user_id', user.id);
-      await client.from('profiles').delete().eq('id', user.id);
-    } catch (e) {
-      debugPrint("Warning during data deletion: $e");
-    } finally {
-      await client.auth.signOut();
+    if (client == null || user == null) {
+      throw Exception("User not authenticated");
     }
+
+    // 1. Delete all user files in diary-media bucket under '<user.id>/'
+    final allPaths = <String>[];
+    int offset = 0;
+    const int limit = 100;
+
+    while (true) {
+      final files = await client.storage.from('diary-media').list(
+        path: user.id,
+        searchOptions: SearchOptions(
+          limit: limit,
+          offset: offset,
+        ),
+      );
+
+      if (files.isEmpty) break;
+
+      for (final file in files) {
+        if (file.name.isNotEmpty) {
+          allPaths.add('${user.id}/${file.name}');
+        }
+      }
+
+      if (files.length < limit) break;
+      offset += files.length;
+    }
+
+    if (allPaths.isNotEmpty) {
+      const int batchSize = 100;
+      for (var i = 0; i < allPaths.length; i += batchSize) {
+        final end = (i + batchSize < allPaths.length) ? i + batchSize : allPaths.length;
+        final batch = allPaths.sublist(i, end);
+        await client.storage.from('diary-media').remove(batch);
+      }
+    }
+
+    // 2. Delete user account and cascade all associated data
+    await client.rpc('delete_user');
+
+    // 3. Sign out
+    await client.auth.signOut();
   }
 
   // ─── PROFILE ───

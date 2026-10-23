@@ -331,30 +331,36 @@ class DiaryProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteAccount() async {
+  Future<bool> deleteAccount() async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
       await SupabaseRepository.deleteUserAccount();
+
+      _isAuthenticated = false;
+      _isSignUpMode = false;
+      _errorMessage = null;
+      _currentPromptForEditor = null;
+      _currentNavIndex = 0; // Return to Welcome screen
+      _diaries = [];
+      _selectedDiaryId = '';
+      _entries = [];
+      _draftEntry = null;
+      _activeEntryId = '';
+      _moodHistory = [];
+      _user = initialUser;
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       debugPrint("Error deleting account: $e");
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
     }
-
-    _isAuthenticated = false;
-    _isSignUpMode = false;
-    _errorMessage = null;
-    _currentPromptForEditor = null;
-    _currentNavIndex = 0; // Return to Welcome screen
-    _diaries = [];
-    _selectedDiaryId = '';
-    _entries = [];
-    _draftEntry = null;
-    _activeEntryId = '';
-    _moodHistory = [];
-    _user = initialUser;
-    _isLoading = false;
-    notifyListeners();
   }
 
   // ─── DATA LOADING (User-Scoped from Supabase) ───

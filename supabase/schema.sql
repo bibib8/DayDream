@@ -289,8 +289,28 @@ CREATE TRIGGER on_entry_count_changed
     AFTER INSERT OR DELETE ON public.entries
     FOR EACH ROW EXECUTE FUNCTION public.handle_diary_entries_count();
 
+-- 6.3 Function to safely delete the authenticated user's account and cascade all data
+CREATE OR REPLACE FUNCTION public.delete_user()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.delete_user() FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.delete_user() TO authenticated;
+
 -- ==============================================================================
 -- DONE!
 -- Your Supabase database is now fully configured with tables, RLS security,
--- storage bucket for 2MB images, and automated signup triggers.
+-- storage bucket for 2MB images, automated signup triggers, and account deletion.
 -- ==============================================================================
+

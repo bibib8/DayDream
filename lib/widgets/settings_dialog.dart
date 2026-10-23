@@ -230,99 +230,134 @@ class _SettingsDialogState extends State<SettingsDialog> {
   }
 
   void _confirmDeleteAccount() {
+    bool isDeleting = false;
     showDialog(
       context: context,
       barrierColor: const Color.fromRGBO(38, 55, 74, 0.55),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 380),
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFEF6),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFFDC2626), width: 1.4),
-            boxShadow: const [
-              BoxShadow(
-                color: Color.fromRGBO(220, 38, 38, 0.15),
-                blurRadius: 28,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEE2E2),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFDC2626), width: 1.1),
-                    ),
-                    child: const Icon(Icons.warning_amber_rounded, size: 20, color: Color(0xFFDC2626)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => PopScope(
+          canPop: !isDeleting,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 380),
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFEF6),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: const Color(0xFFDC2626), width: 1.4),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(220, 38, 38, 0.15),
+                    blurRadius: 28,
+                    offset: Offset(0, 10),
                   ),
-                  const SizedBox(width: 10),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFDC2626), width: 1.1),
+                        ),
+                        child: const Icon(Icons.warning_amber_rounded, size: 20, color: Color(0xFFDC2626)),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        "Delete Account?",
+                        style: AppTypography.sans(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFDC2626),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Text(
-                    "Delete Account?",
+                    "This action cannot be undone. All your diaries, scrapbook entries, moods, and photos will be permanently deleted from the cloud.",
                     style: AppTypography.sans(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFFDC2626),
+                      fontSize: 13,
+                      color: const Color(0xFF475569),
+                      height: 1.4,
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton(
+                        onPressed: isDeleting ? null : () => Navigator.pop(dialogCtx),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF26374A),
+                          side: const BorderSide(color: Color(0xFF26374A), width: 1.1),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                        ),
+                        child: Text("Cancel", style: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ),
+                      ElevatedButton(
+                        onPressed: isDeleting
+                            ? null
+                            : () async {
+                                setDialogState(() => isDeleting = true);
+                                final success = await widget.provider.deleteAccount();
+                                if (!dialogCtx.mounted) return;
+                                if (success) {
+                                  Navigator.pop(dialogCtx); // Close confirmation
+                                  if (mounted) {
+                                    Navigator.pop(context); // Close Settings dialog
+                                  }
+                                } else {
+                                  setDialogState(() => isDeleting = false);
+                                  if (mounted) {
+                                    final errorMsg = widget.provider.errorMessage ?? "Failed to delete account";
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(errorMsg),
+                                        backgroundColor: const Color(0xFFDC2626),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          disabledBackgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                        ),
+                        child: isDeleting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                "Delete Permanently",
+                                style: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                "This action cannot be undone. All your diaries, scrapbook entries, moods, and photos will be permanently deleted from the cloud.",
-                style: AppTypography.sans(
-                  fontSize: 13,
-                  color: const Color(0xFF475569),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF26374A),
-                      side: const BorderSide(color: Color(0xFF26374A), width: 1.1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                    ),
-                    child: Text("Cancel", style: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.w600)),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx); // Close confirmation
-                      Navigator.pop(context); // Close Settings dialog
-                      await widget.provider.deleteAccount();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFDC2626),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                    ),
-                    child: Text(
-                      "Delete Permanently",
-                      style: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
