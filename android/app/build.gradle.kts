@@ -13,6 +13,11 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val isReleaseBuild = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+if (isReleaseBuild && !keystorePropertiesFile.exists()) {
+    throw GradleException("android/key.properties not found – create an upload keystore (see android/key.properties.example)")
+}
+
 android {
     namespace = "com.daydream.daydream_digital_diary"
     compileSdk = maxOf(flutter.compileSdkVersion, 36)
@@ -51,12 +56,6 @@ android {
         release {
             signingConfig = signingConfigs.getByName("release")
         }
-    }
-}
-
-gradle.taskGraph.whenReady { taskGraph ->
-    if (!keystorePropertiesFile.exists() && taskGraph.allTasks.any { task -> task.name.contains("Release", ignoreCase = true) }) {
-        throw GradleException("android/key.properties not found – create an upload keystore (see android/key.properties.example)")
     }
 }
 
