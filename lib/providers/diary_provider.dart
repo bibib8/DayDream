@@ -96,6 +96,18 @@ class DiaryProvider extends ChangeNotifier {
   @visibleForTesting
   void resetAuthState() => _resetAuthState();
 
+  @visibleForTesting
+  void addDiaryForTesting(DiaryModel diary) {
+    _diaries.add(diary);
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void addEntryForTesting(EntryModel entry) {
+    _entries.add(entry);
+    notifyListeners();
+  }
+
   DiaryModel _defaultStarterDiary() {
     return DiaryModel(
       id: 'd_default',
@@ -614,8 +626,10 @@ class DiaryProvider extends ChangeNotifier {
   // ─── ENTRIES CRUD ───
 
   void openEntry(String entryId, {int? returnIndex}) {
+    final matchIndex = _entries.indexWhere((e) => e.id == entryId);
+    if (matchIndex == -1) return;
+    final entry = _entries[matchIndex];
     _draftEntry = null;
-    final entry = _entries.firstWhere((e) => e.id == entryId, orElse: () => _entries[0]);
     _selectedDiaryId = entry.diaryId;
     _activeEntryId = entry.id;
     _currentPromptForEditor = null;

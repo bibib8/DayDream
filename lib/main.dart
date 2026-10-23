@@ -50,16 +50,23 @@ class DaydreamApp extends StatelessWidget {
   }
 }
 
-class MainNavigationShell extends StatelessWidget {
+class MainNavigationShell extends StatefulWidget {
   const MainNavigationShell({super.key});
 
-  final List<Widget> _screens = const [
-    LandingScreen(),      // 0
-    AuthScreen(),         // 1
-    DashboardScreen(),    // 2 (Home / Bookshelf)
-    DiaryEditorScreen(),  // 3 (Journal Editor)
-    MoodTrackerScreen(),  // 4 (Mood Calendar)
-    DiaryEntriesScreen(), // 5 (Diary Book Overview / Pages List)
+  @override
+  State<MainNavigationShell> createState() => _MainNavigationShellState();
+}
+
+class _MainNavigationShellState extends State<MainNavigationShell> {
+  final GlobalKey<DiaryEditorScreenState> _editorKey = GlobalKey<DiaryEditorScreenState>();
+
+  late final List<Widget> _screens = [
+    const LandingScreen(),      // 0
+    const AuthScreen(),         // 1
+    const DashboardScreen(),    // 2 (Home / Bookshelf)
+    DiaryEditorScreen(key: _editorKey),  // 3 (Journal Editor)
+    const MoodTrackerScreen(),  // 4 (Mood Calendar)
+    const DiaryEntriesScreen(), // 5 (Diary Book Overview / Pages List)
   ];
 
   @override
@@ -67,92 +74,111 @@ class MainNavigationShell extends StatelessWidget {
     final diaryProv = Provider.of<DiaryProvider>(context);
     final currentIndex = diaryProv.currentNavIndex;
     final showNav = currentIndex >= 2;
+    final canPop = currentIndex == 0 || currentIndex == 2;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWideScreen = constraints.maxWidth >= 720;
-        final selectedNavIdx = (currentIndex == 5 ? 0 : (currentIndex - 2)).clamp(0, 2);
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
 
-        void onNavTap(int index) {
-          if (index == 0) {
-            diaryProv.setNavIndex(2);
+        if (currentIndex == 3) {
+          if (_editorKey.currentState != null) {
+            await _editorKey.currentState!.flushSaveAndGoBack();
           } else {
-            diaryProv.setNavIndex(index + 2);
+            diaryProv.goBackFromEditor();
           }
+        } else if (currentIndex == 4 || currentIndex == 5) {
+          diaryProv.setNavIndex(2);
+        } else if (currentIndex == 1) {
+          diaryProv.setNavIndex(0);
         }
-
-        // ─── TABLET & DESKTOP: VINTAGE SIDEBAR NAVIGATION ───
-        if (isWideScreen && showNav) {
-          return Scaffold(
-            backgroundColor: const Color(0xFFEDF5FC),
-            body: Row(
-              children: [
-                _DesktopSideNav(
-                  selectedIndex: selectedNavIdx,
-                  onDestinationSelected: onNavTap,
-                  user: diaryProv.user,
-                  onSettingsTap: () => SettingsDialog.show(context, diaryProv),
-                ),
-                Expanded(
-                  child: IndexedStack(
-                    index: currentIndex,
-                    children: _screens,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        // ─── MOBILE: BOTTOM NAVIGATION BAR ───
-        return Scaffold(
-          body: IndexedStack(
-            index: currentIndex,
-            children: _screens,
-          ),
-          bottomNavigationBar: showNav
-              ? Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: Color(0xFF26374A), width: 1.5),
-                    ),
-                    boxShadow: [
-                      BoxShadow(color: Color.fromRGBO(38, 55, 74, 0.08), blurRadius: 10, offset: Offset(0, -2)),
-                    ],
-                  ),
-                  child: BottomNavigationBar(
-                    currentIndex: selectedNavIdx,
-                    onTap: onNavTap,
-                    backgroundColor: Colors.white,
-                    selectedItemColor: const Color(0xFF26374A),
-                    unselectedItemColor: const Color(0xFF758A9E),
-                    selectedLabelStyle: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.bold),
-                    unselectedLabelStyle: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.w500),
-                    type: BottomNavigationBarType.fixed,
-                    elevation: 0,
-                    items: const [
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.auto_stories_outlined),
-                        activeIcon: Icon(Icons.auto_stories),
-                        label: 'Bookshelf',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.edit_note_outlined),
-                        activeIcon: Icon(Icons.edit_note),
-                        label: 'Editor',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.calendar_month_outlined),
-                        activeIcon: Icon(Icons.calendar_month),
-                        label: 'Mood',
-                      ),
-                    ],
-                  ),
-                )
-              : null,
-        );
       },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWideScreen = constraints.maxWidth >= 720;
+          final selectedNavIdx = (currentIndex == 5 ? 0 : (currentIndex - 2)).clamp(0, 2);
+
+          void onNavTap(int index) {
+            if (index == 0) {
+              diaryProv.setNavIndex(2);
+            } else {
+              diaryProv.setNavIndex(index + 2);
+            }
+          }
+
+          // ─── TABLET & DESKTOP: VINTAGE SIDEBAR NAVIGATION ───
+          if (isWideScreen && showNav) {
+            return Scaffold(
+              backgroundColor: const Color(0xFFEDF5FC),
+              body: Row(
+                children: [
+                  _DesktopSideNav(
+                    selectedIndex: selectedNavIdx,
+                    onDestinationSelected: onNavTap,
+                    user: diaryProv.user,
+                    onSettingsTap: () => SettingsDialog.show(context, diaryProv),
+                  ),
+                  Expanded(
+                    child: IndexedStack(
+                      index: currentIndex,
+                      children: _screens,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // ─── MOBILE: BOTTOM NAVIGATION BAR ───
+          return Scaffold(
+            body: IndexedStack(
+              index: currentIndex,
+              children: _screens,
+            ),
+            bottomNavigationBar: showNav
+                ? Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(color: Color(0xFF26374A), width: 1.5),
+                      ),
+                      boxShadow: [
+                        BoxShadow(color: Color.fromRGBO(38, 55, 74, 0.08), blurRadius: 10, offset: Offset(0, -2)),
+                      ],
+                    ),
+                    child: BottomNavigationBar(
+                      currentIndex: selectedNavIdx,
+                      onTap: onNavTap,
+                      backgroundColor: Colors.white,
+                      selectedItemColor: const Color(0xFF26374A),
+                      unselectedItemColor: const Color(0xFF758A9E),
+                      selectedLabelStyle: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.bold),
+                      unselectedLabelStyle: AppTypography.sans(fontSize: 12, fontWeight: FontWeight.w500),
+                      type: BottomNavigationBarType.fixed,
+                      elevation: 0,
+                      items: const [
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.auto_stories_outlined),
+                          activeIcon: Icon(Icons.auto_stories),
+                          label: 'Bookshelf',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.edit_note_outlined),
+                          activeIcon: Icon(Icons.edit_note),
+                          label: 'Editor',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.calendar_month_outlined),
+                          activeIcon: Icon(Icons.calendar_month),
+                          label: 'Mood',
+                        ),
+                      ],
+                    ),
+                  )
+                : null,
+          );
+        },
+      ),
     );
   }
 }

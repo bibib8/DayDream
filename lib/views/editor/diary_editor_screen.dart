@@ -47,7 +47,7 @@ class DiaryEditorScreen extends StatefulWidget {
   const DiaryEditorScreen({super.key});
 
   @override
-  State<DiaryEditorScreen> createState() => _DiaryEditorScreenState();
+  State<DiaryEditorScreen> createState() => DiaryEditorScreenState();
 }
 
 class PromptTextEditingController extends TextEditingController {
@@ -127,7 +127,7 @@ class PromptTextEditingController extends TextEditingController {
   }
 }
 
-class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
+class DiaryEditorScreenState extends State<DiaryEditorScreen> {
   late TextEditingController _titleController;
   late PromptTextEditingController _contentController;
   late TextEditingController _weatherController;
@@ -228,6 +228,15 @@ class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
       await _saveEntry();
     }
     navigateAction();
+  }
+
+  Future<void> flushSaveAndGoBack() async {
+    final prov = Provider.of<DiaryProvider>(context, listen: false);
+    await _flushSaveAndNavigate(() {
+      if (mounted) {
+        prov.goBackFromEditor();
+      }
+    });
   }
 
   Future<void> _saveEntry() async {
@@ -872,7 +881,7 @@ class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
                     children: [
                       // Back Button
                       InkWell(
-                        onTap: () => _flushSaveAndNavigate(() => prov.goBackFromEditor()),
+                        onTap: () => flushSaveAndGoBack(),
                         borderRadius: BorderRadius.circular(50),
                         child: const Padding(
                           padding: EdgeInsets.all(4),
