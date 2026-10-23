@@ -11,6 +11,7 @@ class LandingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final prov = Provider.of<DiaryProvider>(context);
+    final isDesktop = MediaQuery.of(context).size.width >= 720;
 
     return Scaffold(
       backgroundColor: const Color(0xFFEDF5FC),
@@ -27,12 +28,16 @@ class LandingScreen extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
+            height: isDesktop ? 52 : null,
             child: SafeArea(
               bottom: false,
               child: Image.asset(
                 'assets/images/lace_top.png',
                 width: double.infinity,
-                fit: BoxFit.fitWidth,
+                height: isDesktop ? 52 : null,
+                fit: isDesktop ? BoxFit.fitHeight : BoxFit.fitWidth,
+                repeat: isDesktop ? ImageRepeat.repeatX : ImageRepeat.noRepeat,
+                alignment: Alignment.topCenter,
               ),
             ),
           ),
@@ -42,12 +47,16 @@ class LandingScreen extends StatelessWidget {
             bottom: 0,
             left: 0,
             right: 0,
+            height: isDesktop ? 52 : null,
             child: SafeArea(
               top: false,
               child: Image.asset(
                 'assets/images/lace_bottom.png',
                 width: double.infinity,
-                fit: BoxFit.fitWidth,
+                height: isDesktop ? 52 : null,
+                fit: isDesktop ? BoxFit.fitHeight : BoxFit.fitWidth,
+                repeat: isDesktop ? ImageRepeat.repeatX : ImageRepeat.noRepeat,
+                alignment: Alignment.bottomCenter,
               ),
             ),
           ),

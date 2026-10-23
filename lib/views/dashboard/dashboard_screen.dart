@@ -22,8 +22,10 @@ class DashboardScreen extends StatelessWidget {
     final entries = diaryProv.entries;
 
     // Determine today's logged mood (if any)
-    final nowDay = DateTime.now().day;
-    final todayMoodLog = diaryProv.moodHistory.where((m) => m.day == nowDay).toList();
+    final now = DateTime.now();
+    final todayMoodLog = diaryProv.moodHistory
+        .where((m) => m.matchesMonth(now.year, now.month) && m.dayOfMonth == now.day)
+        .toList();
     final todayMoodKey = todayMoodLog.isNotEmpty ? todayMoodLog.last.moodKey : null;
 
     return Scaffold(
@@ -35,12 +37,14 @@ class DashboardScreen extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
+            height: 52,
             child: SafeArea(
               bottom: false,
               child: Image.asset(
                 'assets/images/lace_top.png',
                 width: double.infinity,
-                fit: BoxFit.fitWidth,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
               ),
             ),
           ),
@@ -49,9 +53,12 @@ class DashboardScreen extends StatelessWidget {
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   const SizedBox(height: 20),
 
                   // ─── CARD 1: USER GREETING & DAILY PROMPT ───
@@ -382,10 +389,15 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // 2-Column Grid matching user's design mockup
+                  // Responsive Grid matching screen size
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final crossAxisCount = constraints.maxWidth > 550 ? 3 : 2;
+                      final crossAxisCount = constraints.maxWidth > 780
+                          ? 4
+                          : (constraints.maxWidth > 480 ? 3 : 2);
+                      final childAspect = crossAxisCount >= 4
+                          ? 0.72
+                          : (crossAxisCount == 3 ? 0.71 : 0.70);
                       return GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -395,7 +407,7 @@ class DashboardScreen extends StatelessWidget {
                           crossAxisCount: crossAxisCount,
                           crossAxisSpacing: 14,
                           mainAxisSpacing: 14,
-                          childAspectRatio: 0.70,
+                          childAspectRatio: childAspect,
                         ),
                         itemBuilder: (context, idx) {
                           final diary = diaries[idx];
@@ -453,9 +465,11 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
           ),
-        ],
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 
   void _showCreateDiaryDialog(BuildContext context, DiaryProvider prov) {

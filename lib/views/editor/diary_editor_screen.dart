@@ -854,14 +854,19 @@ class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
             Image.asset(
               'assets/images/lace_top.png',
               width: double.infinity,
-              fit: BoxFit.fitWidth,
+              height: 36,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
             ),
 
             // ─── 2. TOP TOOLBAR HEADER ───
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-              child: Column(
-                children: [
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 820),
+                  child: Column(
+                    children: [
                   // Row: Back Button + Diary Title Info + Auto-save Indicator
                   Row(
                     children: [
@@ -1102,6 +1107,8 @@ class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
                 ],
               ),
             ),
+          ),
+        ),
 
             // Divider Line
             Container(height: 1.2, color: const Color(0xFF26374A)),
@@ -1115,9 +1122,12 @@ class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
                   bottom: BorderSide(color: Color(0xFF26374A), width: 1.0),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 820),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                   // Older / Previous Page Button
                   InkWell(
                     onTap: prov.hasOlderEntryInDiary ? () => _flushSaveAndNavigate(() => prov.goToOlderEntryInDiary()) : null,
@@ -1207,13 +1217,18 @@ class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
                 ],
               ),
             ),
+          ),
+        ),
 
             // ─── 3. MAIN SCROLLABLE JOURNAL CARD WITH DRAGGABLE STICKERS ───
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 520),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 820),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 520),
                   decoration: BoxDecoration(
                     color: paperBg,
                     borderRadius: BorderRadius.circular(28),
@@ -1525,10 +1540,12 @@ class _DiaryEditorScreenState extends State<DiaryEditorScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
-    ),
-  );
+    ],
+  ),
+),
+);
   }
 }
 

@@ -125,4 +125,25 @@ class MoodLogItem {
       'note': note,
     };
   }
+
+  /// Helper to check if this mood log belongs to the specified year and month
+  bool matchesMonth(int year, int month) {
+    if (date.isNotEmpty) {
+      final parsed = DateTime.tryParse(date);
+      if (parsed != null) {
+        return parsed.year == year && parsed.month == month;
+      }
+    }
+    final now = DateTime.now();
+    return now.year == year && now.month == month;
+  }
+
+  /// Day number (1..31) extracted from date string or fallback day
+  int get dayOfMonth {
+    if (date.isNotEmpty) {
+      final parsed = DateTime.tryParse(date);
+      if (parsed != null) return parsed.day;
+    }
+    return day;
+  }
 }

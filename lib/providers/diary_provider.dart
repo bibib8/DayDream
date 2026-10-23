@@ -743,10 +743,20 @@ class DiaryProvider extends ChangeNotifier {
 
   // ─── MOOD TRACKER ───
 
-  Future<void> logMood(String moodKey, [String note = '', int? targetDay]) async {
-    final now = DateTime.now();
-    final dayToLog = targetDay ?? now.day;
-    final dateStr = '2026-10-${dayToLog.toString().padLeft(2, '0')}';
+  Future<void> logMood(String moodKey, [String note = '', dynamic target]) async {
+    DateTime date;
+    if (target is DateTime) {
+      date = target;
+    } else if (target is int) {
+      final now = DateTime.now();
+      date = DateTime(now.year, now.month, target);
+    } else {
+      date = DateTime.now();
+    }
+
+    final dayToLog = date.day;
+    final dateStr =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
     try {
       final savedMood = await SupabaseRepository.saveMoodLog(
@@ -756,9 +766,16 @@ class DiaryProvider extends ChangeNotifier {
         note: note.isNotEmpty ? note : 'Felt ${MoodTypes.get(moodKey).label}',
       );
 
-      _moodHistory.removeWhere((m) => m.day == dayToLog);
+      _moodHistory.removeWhere((m) =>
+          m.date == dateStr ||
+          (m.date.isEmpty &&
+              m.day == dayToLog &&
+              date.year == DateTime.now().year &&
+              date.month == DateTime.now().month));
       _moodHistory.add(savedMood);
-      _moodHistory.sort((a, b) => a.day.compareTo(b.day));
+      _moodHistory.sort((a, b) => (a.date.isNotEmpty && b.date.isNotEmpty)
+          ? a.date.compareTo(b.date)
+          : a.day.compareTo(b.day));
       _user.moodsCount = _moodHistory.length;
       notifyListeners();
     } catch (e) {
@@ -770,9 +787,16 @@ class DiaryProvider extends ChangeNotifier {
         moodKey: moodKey,
         note: note.isNotEmpty ? note : 'Felt ${MoodTypes.get(moodKey).label}',
       );
-      _moodHistory.removeWhere((m) => m.day == dayToLog);
+      _moodHistory.removeWhere((m) =>
+          m.date == dateStr ||
+          (m.date.isEmpty &&
+              m.day == dayToLog &&
+              date.year == DateTime.now().year &&
+              date.month == DateTime.now().month));
       _moodHistory.add(item);
-      _moodHistory.sort((a, b) => a.day.compareTo(b.day));
+      _moodHistory.sort((a, b) => (a.date.isNotEmpty && b.date.isNotEmpty)
+          ? a.date.compareTo(b.date)
+          : a.day.compareTo(b.day));
       _user.moodsCount = _moodHistory.length;
       notifyListeners();
     }

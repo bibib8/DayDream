@@ -11,19 +11,136 @@ class MoodTrackerScreen extends StatefulWidget {
   State<MoodTrackerScreen> createState() => _MoodTrackerScreenState();
 }
 
+const List<String> _kMonthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
-  int _selectedDay = DateTime.now().day.clamp(1, 31);
+  static const int _kMaxPastMonths = 120; // 10 years of past history
+  late final PageController _pageController;
+  late DateTime _displayedMonth;
+  late int _selectedDay;
   String _activeMoodKey = 'happy';
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _displayedMonth = DateTime(now.year, now.month, 1);
+    _selectedDay = now.day;
+    _pageController = PageController(initialPage: _kMaxPastMonths);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  DateTime _monthForPage(int page) {
+    final now = DateTime.now();
+    final monthsAgo = _kMaxPastMonths - page;
+    return DateTime(now.year, now.month - monthsAgo, 1);
+  }
+
+  int _pageForMonth(DateTime month) {
+    final now = DateTime.now();
+    final monthsAgo = (now.year - month.year) * 12 + (now.month - month.month);
+    return _kMaxPastMonths - monthsAgo;
+  }
+
+  void _onPageChanged(int page) {
+    final newMonth = _monthForPage(page);
+    final daysInNewMonth = DateTime(newMonth.year, newMonth.month + 1, 0).day;
+    final now = DateTime.now();
+    final isNowMonth = newMonth.year == now.year && newMonth.month == now.month;
+
+    setState(() {
+      _displayedMonth = newMonth;
+      if (isNowMonth) {
+        _selectedDay = now.day.clamp(1, daysInNewMonth);
+      } else {
+        _selectedDay = _selectedDay.clamp(1, daysInNewMonth);
+      }
+      final diaryProv = Provider.of<DiaryProvider>(context, listen: false);
+      final log = diaryProv.moodHistory.firstWhere(
+        (m) =>
+            m.matchesMonth(_displayedMonth.year, _displayedMonth.month) &&
+            m.dayOfMonth == _selectedDay,
+        orElse: () => MoodLogItem(day: 0, date: '', moodKey: '', note: ''),
+      );
+      if (log.dayOfMonth > 0) {
+        _activeMoodKey = log.moodKey;
+      }
+    });
+  }
+
+  void _goToPreviousMonth() {
+    if (_pageController.hasClients) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  void _goToNextMonth() {
+    final now = DateTime.now();
+    final isCurrentMonth =
+        _displayedMonth.year == now.year && _displayedMonth.month == now.month;
+    if (!isCurrentMonth && _pageController.hasClients) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  void _goToCurrentMonth() {
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        _kMaxPastMonths,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final diaryProv = Provider.of<DiaryProvider>(context);
     final moodHistory = diaryProv.moodHistory;
 
-    // Calculate Top State dynamically
-    final hasMoodLogs = moodHistory.isNotEmpty;
+    final now = DateTime.now();
+    final isCurrentMonth =
+        _displayedMonth.year == now.year && _displayedMonth.month == now.month;
+    final canGoNext = !isCurrentMonth;
+    final canGoPrev = _pageForMonth(_displayedMonth) > 0;
+    final monthName = _kMonthNames[_displayedMonth.month - 1];
+    final monthYearTitle = "$monthName ${_displayedMonth.year}";
+    final daysInDisplayedMonth =
+        DateTime(_displayedMonth.year, _displayedMonth.month + 1, 0).day;
+
+    // Filter mood history for the currently viewed month
+    final displayedMonthMoods = moodHistory
+        .where((m) =>
+            m.matchesMonth(_displayedMonth.year, _displayedMonth.month))
+        .toList();
+    final hasMoodLogs = displayedMonthMoods.isNotEmpty;
+
     final moodCounts = <String, int>{};
-    for (final log in moodHistory) {
+    for (final log in displayedMonthMoods) {
       moodCounts[log.moodKey] = (moodCounts[log.moodKey] ?? 0) + 1;
     }
     String topMoodKey = 'happy';
@@ -35,56 +152,70 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
       }
     });
     final topMood = MoodTypes.get(topMoodKey);
-    final topPct = hasMoodLogs ? ((maxCount / moodHistory.length) * 100).round() : 0;
+    final topPct = hasMoodLogs
+        ? ((maxCount / displayedMonthMoods.length) * 100).round()
+        : 0;
 
     String topStateHeadline;
     String topStateDesc;
     if (!hasMoodLogs) {
       topStateHeadline = "No Mood Logged Yet";
-      topStateDesc = "Tap any mood or save a diary entry to track your emotional flow!";
+      topStateDesc =
+          "Tap any mood or save a diary entry to track your emotional flow!";
     } else {
       switch (topMoodKey) {
         case 'happy':
           topStateHeadline = "Happy & Joyful";
-          topStateDesc = "Your most frequent state ($topPct% of entries). Glowing with positivity!";
+          topStateDesc =
+              "Your most frequent state ($topPct% of entries in $monthName). Glowing with positivity!";
           break;
         case 'calm':
           topStateHeadline = "Calm & Grounded";
-          topStateDesc = "Peaceful and steady in the quiet present ($topPct% of entries).";
+          topStateDesc =
+              "Peaceful and steady in the quiet present ($topPct% of entries in $monthName).";
           break;
         case 'productive':
           topStateHeadline = "Productive & Focused";
-          topStateDesc = "High momentum and getting things done ($topPct% of entries).";
+          topStateDesc =
+              "High momentum and getting things done ($topPct% of entries in $monthName).";
           break;
         case 'tired':
           topStateHeadline = "Resting & Recharging";
-          topStateDesc = "Acknowledging low energy and prioritizing restoration ($topPct% of entries).";
+          topStateDesc =
+              "Acknowledging low energy and prioritizing restoration ($topPct% of entries in $monthName).";
           break;
         case 'stressed':
           topStateHeadline = "Under Pressure";
-          topStateDesc = "Navigating challenges ($topPct% of entries). Remember to breathe deeply.";
+          topStateDesc =
+              "Navigating challenges ($topPct% of entries in $monthName). Remember to breathe deeply.";
           break;
         case 'down':
           topStateHeadline = "Gentle & Tender";
-          topStateDesc = "Holding space for quiet feelings ($topPct% of entries). Be kind to yourself.";
+          topStateDesc =
+              "Holding space for quiet feelings ($topPct% of entries in $monthName). Be kind to yourself.";
           break;
         default:
           topStateHeadline = "${topMood.label} State";
-          topStateDesc = "Recorded in $topPct% of entries this month.";
+          topStateDesc = "Recorded in $topPct% of entries in $monthName.";
       }
     }
 
-    // Calculate Daily Balance dynamically:
+    // Calculate Daily Balance dynamically for the displayed month:
     int balancedDaysCount = 0;
-    for (final log in moodHistory) {
-      if (log.moodKey == 'happy' || log.moodKey == 'calm' || log.moodKey == 'productive') {
+    for (final log in displayedMonthMoods) {
+      if (log.moodKey == 'happy' ||
+          log.moodKey == 'calm' ||
+          log.moodKey == 'productive') {
         balancedDaysCount++;
       }
     }
-    final balanceScore = hasMoodLogs ? ((balancedDaysCount / moodHistory.length) * 100).round() : 0;
+    final balanceScore = hasMoodLogs
+        ? ((balancedDaysCount / displayedMonthMoods.length) * 100).round()
+        : 0;
     final isHighBalance = balanceScore > 55;
     final heartEmoji = hasMoodLogs ? (isHighBalance ? '🤍' : '🖤') : '🤍';
-    final balanceHeadline = hasMoodLogs ? "$balanceScore% Balanced" : "No logs yet";
+    final balanceHeadline =
+        hasMoodLogs ? "$balanceScore% Balanced" : "No logs yet";
     final balanceDesc = hasMoodLogs
         ? (isHighBalance
             ? "Balanced high-energy work with adequate recharge moments."
@@ -100,12 +231,14 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
             top: 0,
             left: 0,
             right: 0,
+            height: 52,
             child: SafeArea(
               bottom: false,
               child: Image.asset(
                 'assets/images/lace_top.png',
                 width: double.infinity,
-                fit: BoxFit.fitWidth,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
               ),
             ),
           ),
@@ -114,9 +247,12 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 880),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // ─── CARD 1: EMOTIONAL ARCHIVE / MONTHLY MOOD CALENDAR HEADER ───
                   Container(
                     width: double.infinity,
@@ -158,7 +294,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          "${moodHistory.length} of 31 days recorded in archive",
+                          "${displayedMonthMoods.length} of $daysInDisplayedMonth days recorded in archive",
                           style: AppTypography.sans(
                             fontSize: 12,
                             color: const Color(0xFF6C8299),
@@ -170,7 +306,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
 
                   const SizedBox(height: 18),
 
-                  // ─── CARD 2: OCTOBER 2026 CALENDAR GRID & LEGEND ───
+                  // ─── CARD 2: MONTHLY MOOD CALENDAR GRID & LEGEND ───
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
@@ -194,20 +330,36 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Month Header Row
+                        // Month Header Row with Navigation Controls
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              "October 2026",
+                              monthYearTitle,
                               style: AppTypography.sans(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xFF1E293B),
                               ),
                             ),
+                            const SizedBox(width: 10),
+                            _MonthNavButton(
+                              icon: Icons.chevron_left_rounded,
+                              tooltip: "Previous Month",
+                              onPressed: canGoPrev ? _goToPreviousMonth : null,
+                            ),
+                            const SizedBox(width: 6),
+                            _MonthNavButton(
+                              icon: Icons.chevron_right_rounded,
+                              tooltip: canGoNext ? "Next Month" : "Future month locked",
+                              onPressed: canGoNext ? _goToNextMonth : null,
+                            ),
+                            if (!isCurrentMonth) ...[
+                              const SizedBox(width: 8),
+                              _ThisMonthPill(onTap: _goToCurrentMonth),
+                            ],
+                            const Spacer(),
                             Text(
-                              "Tap any date to check in",
+                              "Tap date to check in",
                               style: AppTypography.sans(
                                 fontSize: 11,
                                 color: const Color(0xFF6C8299),
@@ -237,48 +389,34 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                         ),
                         const SizedBox(height: 10),
 
-                        // 31 Days Grid with soft hover elevation
-                        GridView.builder(
-                          shrinkWrap: true,
-                          clipBehavior: Clip.none,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 7,
-                            childAspectRatio: 0.95,
-                            crossAxisSpacing: 6,
-                            mainAxisSpacing: 6,
-                          ),
-                          itemCount: 31 + 4,
-                          itemBuilder: (context, idx) {
-                            if (idx < 4) {
-                              return const SizedBox.shrink();
-                            }
-                            final dayNum = idx - 3;
-                            final log = moodHistory.firstWhere(
-                              (m) => m.day == dayNum,
-                              orElse: () => MoodLogItem(day: 0, date: '', moodKey: '', note: ''),
-                            );
-                            final isLogged = log.day > 0;
-                            final mood = isLogged ? MoodTypes.get(log.moodKey) : null;
-                            final todayDay = DateTime.now().day;
-                            final isFuture = dayNum > todayDay;
-                            final isSelected = !isFuture && dayNum == _selectedDay;
+                        // PageView for smooth horizontal month swiping on mobile & arrows on desktop
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final availableWidth = constraints.maxWidth;
+                            final cellWidth = (availableWidth - (6 * 6)) / 7;
+                            final cellHeight = cellWidth / 0.95;
 
-                            return _HoverCalendarDayCell(
-                              dayNum: dayNum,
-                              isFuture: isFuture,
-                              isSelected: isSelected,
-                              mood: mood,
-                              onTap: isFuture
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _selectedDay = dayNum;
-                                        if (isLogged) {
-                                          _activeMoodKey = log.moodKey;
-                                        }
-                                      });
-                                    },
+                            // Calculate exact rows needed for the currently displayed month
+                            final firstOffset = DateTime(_displayedMonth.year, _displayedMonth.month, 1).weekday % 7;
+                            final daysInMonth = DateTime(_displayedMonth.year, _displayedMonth.month + 1, 0).day;
+                            final totalCells = firstOffset + daysInMonth;
+                            final rowsCount = (totalCells / 7).ceil();
+                            final gridHeight = (rowsCount * cellHeight) + ((rowsCount - 1) * 6) + 2;
+
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeInOutCubic,
+                              height: gridHeight,
+                              child: PageView.builder(
+                                controller: _pageController,
+                                itemCount: _kMaxPastMonths + 1,
+                                onPageChanged: _onPageChanged,
+                                physics: const BouncingScrollPhysics(),
+                                itemBuilder: (context, page) {
+                                  final pageMonth = _monthForPage(page);
+                                  return _buildCalendarGridForMonth(pageMonth, moodHistory);
+                                },
+                              ),
                             );
                           },
                         ),
@@ -286,23 +424,12 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                         const SizedBox(height: 16),
 
                         // ─── MOOD LEGEND CHART ───
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildLegendItem(MoodTypes.get('happy')),
-                            _buildLegendItem(MoodTypes.get('calm')),
-                            _buildLegendItem(MoodTypes.get('productive')),
-                            _buildLegendItem(MoodTypes.get('tired')),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        Row(
-                          children: [
-                            _buildLegendItem(MoodTypes.get('stressed')),
-                            const SizedBox(width: 18),
-                            _buildLegendItem(MoodTypes.get('down')),
-                          ],
+                        Wrap(
+                          spacing: 20,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.start,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: MoodTypes.all.values.map(_buildLegendItem).toList(),
                         ),
                       ],
                     ),
@@ -335,7 +462,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "October $_selectedDay, 2026",
+                          "$monthName $_selectedDay, ${_displayedMonth.year}",
                           style: AppTypography.sans(
                             fontSize: 12,
                             color: const Color(0xFF6C8299),
@@ -350,7 +477,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                         const SizedBox(height: 12),
 
                         Text(
-                          "Select Mood for Today:",
+                          "Select Mood for ${isCurrentMonth && _selectedDay == now.day ? 'Today' : 'Day $_selectedDay'}:",
                           style: AppTypography.sans(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
@@ -360,48 +487,60 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                         const SizedBox(height: 12),
 
                         // Mood selector pills with soft hover elevation
-                        Row(
-                          children: [
-                            _HoverMoodSelectPill(
-                              moodKey: 'happy',
-                              isSelected: _activeMoodKey == 'happy',
-                              onTap: () => setState(() => _activeMoodKey = 'happy'),
-                            ),
-                            const SizedBox(width: 8),
-                            _HoverMoodSelectPill(
-                              moodKey: 'calm',
-                              isSelected: _activeMoodKey == 'calm',
-                              onTap: () => setState(() => _activeMoodKey = 'calm'),
-                            ),
-                            const SizedBox(width: 8),
-                            _HoverMoodSelectPill(
-                              moodKey: 'productive',
-                              isSelected: _activeMoodKey == 'productive',
-                              onTap: () => setState(() => _activeMoodKey = 'productive'),
-                            ),
-                            const SizedBox(width: 8),
-                            _HoverMoodSelectPill(
-                              moodKey: 'tired',
-                              isSelected: _activeMoodKey == 'tired',
-                              onTap: () => setState(() => _activeMoodKey = 'tired'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            _HoverMoodSelectPill(
-                              moodKey: 'stressed',
-                              isSelected: _activeMoodKey == 'stressed',
-                              onTap: () => setState(() => _activeMoodKey = 'stressed'),
-                            ),
-                            const SizedBox(width: 8),
-                            _HoverMoodSelectPill(
-                              moodKey: 'down',
-                              isSelected: _activeMoodKey == 'down',
-                              onTap: () => setState(() => _activeMoodKey = 'down'),
-                            ),
-                          ],
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWide = constraints.maxWidth > 580;
+                            final moodsList = MoodTypes.all.values.toList();
+                            if (isWide) {
+                              return Row(
+                                children: moodsList.map((mood) {
+                                  return Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      child: _HoverMoodSelectPill(
+                                        moodKey: mood.key,
+                                        isSelected: _activeMoodKey == mood.key,
+                                        onTap: () => setState(() => _activeMoodKey = mood.key),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            }
+                            return Column(
+                              children: [
+                                Row(
+                                  children: moodsList.sublist(0, 3).map((mood) {
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                                        child: _HoverMoodSelectPill(
+                                          moodKey: mood.key,
+                                          isSelected: _activeMoodKey == mood.key,
+                                          onTap: () => setState(() => _activeMoodKey = mood.key),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: moodsList.sublist(3, 6).map((mood) {
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                                        child: _HoverMoodSelectPill(
+                                          moodKey: mood.key,
+                                          isSelected: _activeMoodKey == mood.key,
+                                          onTap: () => setState(() => _activeMoodKey = mood.key),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            );
+                          },
                         ),
 
                         const SizedBox(height: 20),
@@ -409,8 +548,13 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                         // Save Mood Check-In Button with soft hover lift
                         _HoverSaveMoodButton(
                           onTap: () {
-                            final todayDay = DateTime.now().day;
-                            if (_selectedDay > todayDay) {
+                            final selectedDate = DateTime(
+                              _displayedMonth.year,
+                              _displayedMonth.month,
+                              _selectedDay,
+                            );
+                            final today = DateTime(now.year, now.month, now.day);
+                            if (selectedDate.isAfter(today)) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text("Cannot check-in mood for future dates."),
@@ -420,11 +564,11 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                               );
                               return;
                             }
-                            diaryProv.logMood(_activeMoodKey, '', _selectedDay);
+                            diaryProv.logMood(_activeMoodKey, '', selectedDate);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  "Logged ${MoodTypes.get(_activeMoodKey).label} for October $_selectedDay! ✨",
+                                  "Logged ${MoodTypes.get(_activeMoodKey).label} for $monthName $_selectedDay, ${_displayedMonth.year}! ✨",
                                 ),
                                 backgroundColor: const Color(0xFF241F3E),
                                 duration: const Duration(seconds: 2),
@@ -450,7 +594,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "October Mood Analysis",
+                    "$monthName Mood Analysis",
                     style: AppTypography.sans(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -489,8 +633,68 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
+    ],
+  ),
+);
+  }
+
+  /// Builds the 7-column calendar grid for a specific month page in PageView
+  Widget _buildCalendarGridForMonth(DateTime month, List<MoodLogItem> allMoods) {
+    final firstWeekdayOffset = DateTime(month.year, month.month, 1).weekday % 7;
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+    final totalCells = firstWeekdayOffset + daysInMonth;
+    final now = DateTime.now();
+    final isNowMonth = month.year == now.year && month.month == now.month;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      clipBehavior: Clip.none,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7,
+        childAspectRatio: 0.95,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+      ),
+      itemCount: totalCells,
+      itemBuilder: (context, idx) {
+        if (idx < firstWeekdayOffset) {
+          return const SizedBox.shrink();
+        }
+        final dayNum = idx - firstWeekdayOffset + 1;
+        final isFuture = isNowMonth && (dayNum > now.day);
+        final isSelected = (_displayedMonth.year == month.year &&
+            _displayedMonth.month == month.month &&
+            dayNum == _selectedDay);
+
+        final log = allMoods.firstWhere(
+          (m) =>
+              m.matchesMonth(month.year, month.month) &&
+              m.dayOfMonth == dayNum,
+          orElse: () => MoodLogItem(day: 0, date: '', moodKey: '', note: ''),
+        );
+        final isLogged = log.dayOfMonth > 0;
+        final mood = isLogged ? MoodTypes.get(log.moodKey) : null;
+
+        return _HoverCalendarDayCell(
+          dayNum: dayNum,
+          isFuture: isFuture,
+          isSelected: isSelected,
+          mood: mood,
+          onTap: isFuture
+              ? null
+              : () {
+                  setState(() {
+                    _selectedDay = dayNum;
+                    if (isLogged) {
+                      _activeMoodKey = log.moodKey;
+                    }
+                  });
+                },
+        );
+      },
     );
   }
 
@@ -744,9 +948,8 @@ class _HoverMoodSelectPillState extends State<_HoverMoodSelectPill> {
   Widget build(BuildContext context) {
     final mood = MoodTypes.get(widget.moodKey);
 
-    return Expanded(
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: AnimatedContainer(
@@ -815,8 +1018,7 @@ class _HoverMoodSelectPillState extends State<_HoverMoodSelectPill> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -894,6 +1096,132 @@ class _HoverSaveMoodButtonState extends State<_HoverSaveMoodButton> {
                   ),
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Vintage circular navigation button for calendar month switching (Previous / Next)
+class _MonthNavButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String tooltip;
+
+  const _MonthNavButton({
+    required this.icon,
+    this.onPressed,
+    required this.tooltip,
+  });
+
+  @override
+  State<_MonthNavButton> createState() => _MonthNavButtonState();
+}
+
+class _MonthNavButtonState extends State<_MonthNavButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = widget.onPressed != null;
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+        onEnter: (_) {
+          if (isEnabled) setState(() => _isHovered = true);
+        },
+        onExit: (_) {
+          if (isEnabled) setState(() => _isHovered = false);
+        },
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isEnabled
+                  ? (_isHovered ? const Color(0xFFF1F5FC) : Colors.white)
+                  : const Color(0xFFF1F5F9),
+              border: Border.all(
+                color: isEnabled
+                    ? const Color(0xFF241F3E)
+                    : const Color(0xFFCBD5E1),
+                width: 1.2,
+              ),
+              boxShadow: (isEnabled && _isHovered)
+                  ? const [
+                      BoxShadow(
+                        color: Color.fromRGBO(36, 31, 62, 0.12),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Icon(
+              widget.icon,
+              size: 18,
+              color: isEnabled
+                  ? const Color(0xFF241F3E)
+                  : const Color(0xFF94A3B8),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Delicate "This Month" badge pill to jump back to current month from past archives
+class _ThisMonthPill extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _ThisMonthPill({required this.onTap});
+
+  @override
+  State<_ThisMonthPill> createState() => _ThisMonthPillState();
+}
+
+class _ThisMonthPillState extends State<_ThisMonthPill> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: _isHovered ? const Color(0xFFE2F0FD) : const Color(0xFFFFFDF3),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF241F3E), width: 1.2),
+            boxShadow: _isHovered
+                ? const [
+                    BoxShadow(
+                      color: Color.fromRGBO(36, 31, 62, 0.10),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            "This Month",
+            style: AppTypography.sans(
+              fontSize: 10.5,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF241F3E),
             ),
           ),
         ),

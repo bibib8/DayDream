@@ -1,11 +1,11 @@
 {
-    "name": "daydream_digital_diary",
-    "short_name": "daydream_digital_diary",
+    "name": "Daydream Digital Diary",
+    "short_name": "Daydream",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#EDF5FC",
+    "theme_color": "#241F3E",
+    "description": "A whimsical Y2K and coquette editorial digital diary and scrapbook.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

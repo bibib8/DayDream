@@ -47,12 +47,14 @@ class _DiaryEntriesScreenState extends State<DiaryEntriesScreen> {
             top: 0,
             left: 0,
             right: 0,
+            height: 52,
             child: SafeArea(
               bottom: false,
               child: Image.asset(
                 'assets/images/lace_top.png',
                 width: double.infinity,
-                fit: BoxFit.fitWidth,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
               ),
             ),
           ),
@@ -61,9 +63,12 @@ class _DiaryEntriesScreenState extends State<DiaryEntriesScreen> {
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   const SizedBox(height: 12),
 
                   // ─── TOP BAR: BACK BUTTON + DIARY TITLE + NEW PAGE BUTTON ───
@@ -517,9 +522,11 @@ class _DiaryEntriesScreenState extends State<DiaryEntriesScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 
   void _showDeleteEntryDialog(BuildContext context, DiaryProvider prov, EntryModel entry) {
