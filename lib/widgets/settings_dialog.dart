@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core/constants/app_typography.dart';
 import '../core/services/supabase_repository.dart';
 import '../providers/diary_provider.dart';
+import '../views/settings/privacy_policy_screen.dart';
 import 'user_avatar_view.dart';
 
 class SettingsDialog extends StatefulWidget {
@@ -221,106 +222,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
 }
 
   void _showPrivacyPolicy() {
-    showDialog(
-      context: context,
-      barrierColor: const Color.fromRGBO(38, 55, 74, 0.45),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 420),
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFEF6),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFF26374A), width: 1.4),
-            boxShadow: const [
-              BoxShadow(
-                color: Color.fromRGBO(38, 55, 74, 0.16),
-                blurRadius: 28,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Privacy Policy",
-                      style: AppTypography.sans(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  "Daydream Digital Diary respects and protects your personal privacy.\n\n"
-                  "1. Data Collection:\n"
-                  "We only collect your email address for account authentication and your written entries/photos to sync across your devices via encrypted cloud storage.\n\n"
-                  "2. No Third-Party Tracking:\n"
-                  "We do not sell, rent, or share your journal entries or personal data with third-party advertisers.\n\n"
-                  "3. Account & Data Deletion:\n"
-                  "You have full ownership of your data. You may permanently delete your account and all associated diaries at any time directly within the Settings menu.",
-                  style: AppTypography.sans(fontSize: 12.5, color: const Color(0xFF475569), height: 1.45),
-                ),
-                const SizedBox(height: 18),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    height: 38,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0xFFF0F7FD),
-                          Color(0xFFDEF1FE),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFF241F3E), width: 1.6),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color.fromRGBO(38, 55, 74, 0.04),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => Navigator.pop(ctx),
-                        borderRadius: BorderRadius.circular(18),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Center(
-                            child: Text(
-                              "Understood",
-                              style: AppTypography.sans(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF241F3E),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PrivacyPolicyScreen(),
       ),
     );
   }

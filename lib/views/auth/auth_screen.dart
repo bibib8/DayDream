@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/widgets/polka_dot_painter.dart';
 import '../../providers/diary_provider.dart';
+import '../settings/privacy_policy_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -373,6 +374,27 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const PrivacyPolicyScreen(),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                        child: Text(
+                          "Privacy Policy",
+                          style: AppTypography.sans(
+                            fontSize: 11,
+                            color: const Color(0xFF6C8299),
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
