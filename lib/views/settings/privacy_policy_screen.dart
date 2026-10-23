@@ -219,7 +219,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                               const SizedBox(height: 8),
                               _buildBulletItem(
                                 "By email",
-                                "Send a request from your account's email address to support@daydreamdiary.app with the subject \"Delete my Daydream account\". We will delete your account, sign-in credentials, uploaded photos and all associated data within 30 days and confirm by email.",
+                                "Send a request from your account's email address to support.daydream@gmail.com with the subject \"Delete my Daydream account\". We will delete your account, sign-in credentials, uploaded photos and all associated data within 30 days and confirm by email.",
                               ),
                               const SizedBox(height: 12),
                               _buildParagraph(
@@ -234,7 +234,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                               _buildParagraph(
                                 "Depending on where you live (for example under Thailand's Personal Data Protection Act B.E. 2562 (PDPA) or the EU/UK GDPR), "
                                 "you may have the right to access, correct, delete or receive a copy of your personal data, to object to or restrict its processing, "
-                                "and to withdraw consent. To exercise any of these rights, contact us at support@daydreamdiary.app. "
+                                "and to withdraw consent. To exercise any of these rights, contact us at support.daydream@gmail.com. "
                                 "You may also have the right to complain to your local data protection authority.",
                               ),
 
@@ -833,7 +833,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
   }
 
   Widget _buildContactCard(BuildContext context) {
-    const contactEmail = "support@daydreamdiary.app";
+    const contactEmail = "support.daydream@gmail.com";
 
     return Container(
       padding: const EdgeInsets.all(16),

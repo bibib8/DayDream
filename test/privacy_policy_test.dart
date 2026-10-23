@@ -49,6 +49,6 @@ void main() {
     await tester.ensureVisible(find.text("Understood"));
     await tester.pumpAndSettle();
     expect(find.text("Understood"), findsOneWidget);
-    expect(find.text("support@daydreamdiary.app"), findsOneWidget);
+    expect(find.text("support.daydream@gmail.com"), findsOneWidget);
   });
 }
