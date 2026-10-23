@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/services/supabase_repository.dart';
+import '../core/services/supabase_service.dart';
 import '../data/models/diary_model.dart';
 import '../data/models/entry_model.dart';
 import '../data/models/mood_model.dart';
@@ -14,6 +17,10 @@ class DiaryProvider extends ChangeNotifier {
   bool _isSignUpMode = false;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _infoMessage;
+  StreamSubscription<AuthState>? _authSubscription;
+  bool _isLoadingUserData = false;
+  bool _isDisposed = false;
 
   UserModel _user = initialUser;
   List<DiaryModel> _diaries = [];
@@ -32,12 +39,62 @@ class DiaryProvider extends ChangeNotifier {
   }
 
   void _initAuthListener() {
-    if (SupabaseRepository.isAuthenticated) {
+    if (SupabaseService.client != null) {
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        _handleAuthStateChange(data.event, data.session);
+      });
+    }
+
+    if (SupabaseRepository.isAuthenticated && !_isAuthenticated) {
       _isAuthenticated = true;
       _currentNavIndex = 2;
       loadUserData();
     }
   }
+
+  void _handleAuthStateChange(AuthChangeEvent event, Session? session) {
+    if (event == AuthChangeEvent.signedOut) {
+      _resetAuthState();
+    } else if (event == AuthChangeEvent.initialSession || event == AuthChangeEvent.signedIn) {
+      if (!_isAuthenticated && session != null) {
+        _isAuthenticated = true;
+        _isSignUpMode = false;
+        _errorMessage = null;
+        _infoMessage = null;
+        _currentNavIndex = 2; // Jump to Bookshelf
+        _diaries = [];
+        _selectedDiaryId = '';
+        _entries = [];
+        _activeEntryId = '';
+        _moodHistory = [];
+        notifyListeners();
+        loadUserData();
+      }
+    }
+  }
+
+  void _resetAuthState() {
+    _isAuthenticated = false;
+    _isSignUpMode = false;
+    _errorMessage = null;
+    _infoMessage = null;
+    _currentPromptForEditor = null;
+    _currentNavIndex = 0; // Back to Welcome screen
+    _diaries = [];
+    _selectedDiaryId = '';
+    _entries = [];
+    _draftEntry = null;
+    _activeEntryId = '';
+    _moodHistory = [];
+    _user = initialUser;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void handleAuthStateChange(AuthChangeEvent event, Session? session) => _handleAuthStateChange(event, session);
+
+  @visibleForTesting
+  void resetAuthState() => _resetAuthState();
 
   DiaryModel _defaultStarterDiary() {
     return DiaryModel(
@@ -62,6 +119,7 @@ class DiaryProvider extends ChangeNotifier {
   bool get isSignUpMode => _isSignUpMode;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get infoMessage => _infoMessage;
 
   UserModel get user => _user;
   List<DiaryModel> get diaries => _diaries.isNotEmpty ? _diaries : [_defaultStarterDiary()];
@@ -114,6 +172,12 @@ class DiaryProvider extends ChangeNotifier {
 
   void clearError() {
     _errorMessage = null;
+    _infoMessage = null;
+    notifyListeners();
+  }
+
+  void clearInfoMessage() {
+    _infoMessage = null;
     notifyListeners();
   }
 
@@ -170,6 +234,7 @@ class DiaryProvider extends ChangeNotifier {
   void openAuth({required bool isSignUp}) {
     _isSignUpMode = isSignUp;
     _errorMessage = null;
+    _infoMessage = null;
     _currentNavIndex = 1; // Index 1 is AuthScreen
     notifyListeners();
   }
@@ -188,6 +253,7 @@ class DiaryProvider extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _errorMessage = null;
+    _infoMessage = null;
     notifyListeners();
 
     try {
@@ -201,27 +267,37 @@ class DiaryProvider extends ChangeNotifier {
         penName: penName,
       );
 
-      if (response.user != null) {
-        _isAuthenticated = true;
+      if (response.session != null) {
         _isSignUpMode = false;
-        _currentNavIndex = 2; // Jump to Bookshelf
-        _diaries = [];
-        _selectedDiaryId = '';
-        _entries = [];
-        _activeEntryId = '';
-        _moodHistory = [];
-        _user = UserModel(
-          penName: penName,
-          handle: '@${email.split('@').first}',
-          avatar: '🩵',
-          theme: 'Classic',
-          streakDays: 1,
-          totalPages: 0,
-          moodsCount: 0,
-          bio: 'Quiet reflections & dreamy moments 🩵',
-        );
+        if (!_isAuthenticated) {
+          _isAuthenticated = true;
+          _currentNavIndex = 2; // Jump to Bookshelf
+          _diaries = [];
+          _selectedDiaryId = '';
+          _entries = [];
+          _activeEntryId = '';
+          _moodHistory = [];
+          _user = UserModel(
+            penName: penName,
+            handle: '@${email.split('@').first}',
+            avatar: '🩵',
+            theme: 'Classic',
+            streakDays: 1,
+            totalPages: 0,
+            moodsCount: 0,
+            bio: 'Quiet reflections & dreamy moments 🩵',
+          );
 
-        await loadUserData();
+          await loadUserData();
+        }
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else if (response.user != null) {
+        _isAuthenticated = false;
+        _isSignUpMode = false;
+        _currentNavIndex = 1; // Stay on Auth screen
+        _infoMessage = "Check your email to confirm your account, then sign in.";
         _isLoading = false;
         notifyListeners();
         return true;
@@ -243,6 +319,7 @@ class DiaryProvider extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _errorMessage = null;
+    _infoMessage = null;
     notifyListeners();
 
     try {
@@ -256,15 +333,17 @@ class DiaryProvider extends ChangeNotifier {
       );
 
       if (response.user != null) {
-        _isAuthenticated = true;
         _isSignUpMode = false;
-        _currentNavIndex = 2; // Jump to Bookshelf
-        _diaries = [];
-        _selectedDiaryId = '';
-        _entries = [];
-        _activeEntryId = '';
-        _moodHistory = [];
-        await loadUserData();
+        if (!_isAuthenticated) {
+          _isAuthenticated = true;
+          _currentNavIndex = 2; // Jump to Bookshelf
+          _diaries = [];
+          _selectedDiaryId = '';
+          _entries = [];
+          _activeEntryId = '';
+          _moodHistory = [];
+          await loadUserData();
+        }
         _isLoading = false;
         notifyListeners();
         return true;
@@ -287,19 +366,7 @@ class DiaryProvider extends ChangeNotifier {
       debugPrint("Error signing out: $e");
     }
 
-    _isAuthenticated = false;
-    _isSignUpMode = false;
-    _errorMessage = null;
-    _currentPromptForEditor = null;
-    _currentNavIndex = 0; // Back to Welcome screen
-    _diaries = [];
-    _selectedDiaryId = '';
-    _entries = [];
-    _draftEntry = null;
-    _activeEntryId = '';
-    _moodHistory = [];
-    _user = initialUser;
-    notifyListeners();
+    _resetAuthState();
   }
 
   Future<void> updatePenName(String newPenName) async {
@@ -334,23 +401,13 @@ class DiaryProvider extends ChangeNotifier {
   Future<bool> deleteAccount() async {
     _isLoading = true;
     _errorMessage = null;
+    _infoMessage = null;
     notifyListeners();
 
     try {
       await SupabaseRepository.deleteUserAccount();
 
-      _isAuthenticated = false;
-      _isSignUpMode = false;
-      _errorMessage = null;
-      _currentPromptForEditor = null;
-      _currentNavIndex = 0; // Return to Welcome screen
-      _diaries = [];
-      _selectedDiaryId = '';
-      _entries = [];
-      _draftEntry = null;
-      _activeEntryId = '';
-      _moodHistory = [];
-      _user = initialUser;
+      _resetAuthState();
       _isLoading = false;
       notifyListeners();
       return true;
@@ -367,6 +424,8 @@ class DiaryProvider extends ChangeNotifier {
 
   Future<void> loadUserData() async {
     if (!SupabaseRepository.isAuthenticated) return;
+    if (_isLoadingUserData) return;
+    _isLoadingUserData = true;
 
     _isLoading = true;
     notifyListeners();
@@ -421,6 +480,7 @@ class DiaryProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint("Error loading user data from Supabase: $e");
     } finally {
+      _isLoadingUserData = false;
       _isLoading = false;
       notifyListeners();
     }
@@ -812,5 +872,18 @@ class DiaryProvider extends ChangeNotifier {
 
   Future<String> uploadImage(Uint8List bytes, String fileName) async {
     return await SupabaseRepository.uploadImage(bytes: bytes, fileName: fileName);
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
   }
 }

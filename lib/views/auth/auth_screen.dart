@@ -88,12 +88,24 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!mounted) return;
 
     if (success) {
+      setState(() {
+        _isSignUp = prov.isSignUpMode;
+      });
       _resetFields();
     } else if (prov.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(prov.errorMessage!),
           backgroundColor: const Color(0xFF991B1B),
+        ),
+      );
+    }
+
+    if (prov.infoMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(prov.infoMessage!),
+          backgroundColor: const Color(0xFF26374A),
         ),
       );
     }
